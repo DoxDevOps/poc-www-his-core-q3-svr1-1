@@ -34,9 +34,9 @@ def alert(url, params):
         return False
     return True
 
-recipients = ["+265998006237", "+265991450316","+265992182669", "+265995246144", "+265998276712", "+265999600511", "+265992277183", "+265991239213", "+265995532195"] 
+recipients = ["+265998006237", "+265991450316","+265992182669", "+265995246144", "+265998276712", "+265881159942", "+265995532195"," +265991239213"] 
 #* Get cluster details
-cluster = get_xi_data('http://10.44.0.52:8000/sites/api/v1/get_single_cluster/43')
+cluster = get_xi_data('http://10.44.0.52:8000/sites/api/v1/get_single_cluster/32')
 
 for site_id in cluster['site']:
     site = get_xi_data('http://10.44.0.52:8000/sites/api/v1/get_single_site/' + str(site_id))

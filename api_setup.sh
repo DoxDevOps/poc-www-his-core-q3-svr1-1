@@ -22,6 +22,6 @@ echo "____________________________________________"
 echo "--------------------------------------------"
 echo "Changing Timeout and Pool in database.yml"
 echo "____________________________________________"
-sed -i '7 s/5/200/g' database.yml
-sed -i '8 s/5000/10000/g' database.yml
+sed -i '7 s/5/200/g' config/database.yml
+sed -i '8 s/5000/10000/g' config/database.yml
 echo "--------------------------------------------"

@@ -1,3 +1,5 @@
+import logging
+
 import requests
 import json
 import platform
@@ -6,17 +8,23 @@ import os
 from fabric import Connection
 from dotenv import load_dotenv
 load_dotenv()
-#API_KEY = os.getenv('PROJECT_API_KEY')
 
-""" 
-* get data from Xi
-* @params url
-* return dict
-"""
-def get_xi_data(url):
-    response = requests.get(url)
-    data = json.loads(response.text)
-    data = data[0]['fields']
+
+def get_data(url:str) -> any:
+    """
+    Get data from service holding the site details
+
+    This func has to explicitly know how the data is structure
+    """
+    try:
+        response = requests.get(url)
+        data = json.loads(response.text)
+        data = data[0]['fields']
+
+    except Exception as e:
+        logging.info("Couldn't get data from %s due to %s" % url, e)
+        return False
+
     return data
 
 

@@ -74,7 +74,7 @@ def main():
                 send_data(site, "$WORKSPACE/BHT-EMR-API", "/var/www")
                 
                 # ship api script to remote site
-                not send_data(site, "$WORKSPACE/api_setup.sh", "/var/www/BHT-EMR-API")
+                send_data(site, "$WORKSPACE/api_setup.sh", "/var/www/BHT-EMR-API")
 
                 # run setup script
                 run_cmd_on_remote_host(site, "cd /var/www/BHT-EMR-API && ./api_setup.sh")

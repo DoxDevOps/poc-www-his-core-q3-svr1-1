@@ -51,6 +51,8 @@ def run_cmd_on_remote_host(site:dict[str, Any], cmd:str) -> Any:
         return False
 
 def main():
+
+    approved_version = "v4.16.4" # get_data("http://10.44.0.52:8000/apps/1/api/approved_version")
     
     # [TODO] dynamically get cluster id
     cluster = get_data('http://10.44.0.52:8000/sites/api/v1/get_single_cluster/1')
@@ -75,12 +77,20 @@ def main():
                 
                 # ship api script to remote site
                 send_data(site, "$WORKSPACE/api_setup.sh", "/var/www/BHT-EMR-API")
+                
+                # checkout to approved version
+                run_cmd_on_remote_host(site, f"git checkout {approved_version} -f")
 
                 # run setup script
                 run_cmd_on_remote_host(site, "cd /var/www/BHT-EMR-API && ./api_setup.sh")
                 
                 # git describe
-                run_cmd_on_remote_host(site, "cd /var/www/BHT-EMR-API && git describe")            
+                current_version_on_remote_host = run_cmd_on_remote_host(site, "cd /var/www/BHT-EMR-API && git describe")
+
+                if approved_version != current_version_on_remote_host:
+                    logging.info("The version for the remote host %s has failed to update to %s", site["ip_address"], approved_version)  
+
+                logging.info("The version for the remote host %s successfully updated to %s", site["ip_address"], approved_version)           
                            
                 # close the while loop
                 count = 3

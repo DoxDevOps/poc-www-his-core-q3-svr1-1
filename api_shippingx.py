@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import requests
 import json
@@ -6,118 +7,90 @@ import platform
 import subprocess
 import os
 from fabric import Connection
-from dotenv import load_dotenv
-load_dotenv()
 
 
-def get_data(url:str) -> any:
+def get_data(url:str) -> Any:
     """
     Get data from service holding the site details
 
     This func has to explicitly know how the data is structure
     """
+
     try:
         response = requests.get(url)
         data = json.loads(response.text)
         data = data[0]['fields']
-
+        return data
+    
     except Exception as e:
-        logging.info("Couldn't get data from %s due to %s" % url, e)
-        return False
-
-    return data
+        logging.debug("Couldn't get data from %s due to %s", url, e)
+        return False    
 
 
-def alert(url, params):
-    """send sms alert"""
+def send_data(site:dict[str, Any], source:str, destination:str) -> bool:
+    """Sends data to remote host"""
+
     try:
-        headers = {'Content-type': 'application/json; charset=utf-8'}
-        r = requests.post(url, json=params, headers=headers)
-        print("SMS sent successfully")
-        
+        send_data = f"rsync -r {source} {site['username']}@{site['ip_address']}:{destination}" 
+        os.system(send_data)
+        return True
+    
     except Exception as e:
-        print("Failed to send SMS with exception: ", e)
+        logging.debug("Couldn't send data to %s due to %s", site['ip_address'], e)
         return False
-    return True
 
-recipients = ["+265998006237", "+265995246144", "+265991450316", "+265998276712", "+265992182669"]
+def run_cmd_on_remote_host(site:dict[str, Any], cmd:str) -> Any:
+    """Runs command on a remote host"""
 
-cluster = get_xi_data('http://10.44.0.52:8000/sites/api/v1/get_single_cluster/1')
+    try:
+        result = Connection(f"{site['username']}@{site['ip_address']}").run(cmd, hide=True)
+        return "{0.stdout}".format(result).strip()
+    
+    except Exception as e:
+        logging.debug("Failed to run %s on remote host %s because of error: %s", cmd, site["ip_address"], e)
+        return False
 
-for site_id in cluster['site']:
-    site = get_xi_data('http://10.44.0.52:8000/sites/api/v1/get_single_site/' + str(site_id))
+def main():
+    
+    # [TODO] dynamically get cluster id
+    cluster = get_data('http://10.44.0.52:8000/sites/api/v1/get_single_cluster/1')
 
-    # functionality for ping re-tries
-    count = 0
+    for site_id in cluster['site']:
+        
+        site = get_data(f'http://10.44.0.52:8000/sites/api/v1/get_single_site/{str(site_id)}')
 
-    while (count < 3):
+        # functionality for ping re-tries
+        # [TODO] use something like a decorator
+        count = 0
 
-        # lets check if the site is available
-        param = '-n' if platform.system().lower()=='windows' else '-c'
+        while (count < 3):
 
-        if subprocess.call(['ping', param, '1', site['ip_address']]) == 0:
+            # lets check if the site is available
+            param = '-n' if platform.system().lower()=='windows' else '-c'
 
-            # shipping backup script
-            #push_backup_script = "rsync " + "-r $WORKSPACE/devops_api_backup.sh " + site['username'] + "@" + site['ip_address'] + ":/var/www"
-            #os.system(push_backup_script)
-            
-            # backing up application folder [API]
-            #backup_script = "ssh " + site['username'] + "@" + site['ip_address'] + " 'cd /var/www && chmod 777 devops_api_backup.sh && ./devops_api_backup.sh'"
-            #os.system(backup_script)
-            
-            # ship api to remote site
-            push_api = "rsync " + "-r $WORKSPACE/BHT-EMR-API " + site['username'] + "@" + site['ip_address'] + ":/var/www"
-            os.system(push_api)
-            
-            # ship api script to remote site
-            push_api_script = "rsync " + "-r $WORKSPACE/api_setup.sh " + site['username'] + "@" + site['ip_address'] + ":/var/www/BHT-EMR-API"
-            os.system(push_api_script)
-            
-            # run setup script
-            run_api_script = "ssh " + site['username'] + "@" + site['ip_address'] + " 'cd /var/www/BHT-EMR-API && ./api_setup.sh'"
-            os.system(run_api_script)
-            
-            result = Connection("" + site['username'] + "@" + site['ip_address'] + "").run('cd /var/www/BHT-EMR-API && git describe', hide=True)
-            
-            msg = "{0.stdout}"
-            
-            version = msg.format(result).strip()
-            
-            api_version = "v4.16.3"
-            
-            if api_version == version:
-                msgx = "Hi there,\n\nDeployment of API to " + version + " for " + site['name'] + " completed succesfully.\n\nThanks!\nEGPAF/LIN HIS."
+            if subprocess.call(['ping', param, '1', site['ip_address']]) == 0:
+                
+                # ship api to remote site
+                send_data(site, "$WORKSPACE/BHT-EMR-API", "/var/www")
+                
+                # ship api script to remote site
+                not send_data(site, "$WORKSPACE/api_setup.sh", "/var/www/BHT-EMR-API")
+
+                # run setup script
+                run_cmd_on_remote_host(site, "cd /var/www/BHT-EMR-API && ./api_setup.sh")
+                
+                # git describe
+                run_cmd_on_remote_host(site, "cd /var/www/BHT-EMR-API && git describe")            
+                           
+                # close the while loop
+                count = 3
+
             else:
-                msgx = "Hi there,\n\nSomething went wrong while checking out to the latest API version. Current version is " + version + " for " + site['name'] + ".\n\nThanks!\nEGPAF/LIN HIS."
+                # increment the count
+                count += 1              
 
-            # send sms alert
-            for recipient in recipients:
-                msg = "Hi there,\n\nDeployment of API to " + version + " for " + site['name'] + " completed succesfully.\n\nThanks!\nEGPAF/LIN HIS."
-                params = {
-                    "api_key": os.getenv('API_KEY'),
-                    "recipient": recipient,
-                    "message": msgx
-                }
-                alert("http://sms-api.hismalawi.org/v1/sms/send", params)
-
-            # close the while loop
-            count = 3
-
-        else:
-            # increment the count
-            count = count + 1
-
-            # make sure we are sending the alert at the last pint attempt
-            if count == 3:
-                for recipient in recipients:
-                    msg = "Hi there,\n\nDeployment of API to v4.16.3 for " + site['name'] + " failed to complete after several connection attempts.\n\nThanks!\nEGPAF/LIN HIS."
-                    params = {
-                        "api_key": os.getenv('API_KEY'),
-                        "recipient": recipient,
-                        "message": msg
-                    }
-                    alert("http://sms-api.hismalawi.org/v1/sms/send", params)
-
+if __name__ == '__main__':
+    main()
         
 
 

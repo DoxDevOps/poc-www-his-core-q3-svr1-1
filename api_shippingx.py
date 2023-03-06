@@ -27,7 +27,7 @@ def get_data(url:str) -> Any:
         return False    
 
 
-def send_data(site:dict[str, Any], source:str, destination:str) -> bool:
+def send_data(site, source:str, destination:str) -> bool:
     """Sends data to remote host"""
 
     try:
@@ -39,7 +39,7 @@ def send_data(site:dict[str, Any], source:str, destination:str) -> bool:
         logging.debug("Couldn't send data to %s due to %s", site['ip_address'], e)
         return False
 
-def run_cmd_on_remote_host(site:dict[str, Any], cmd:str) -> Any:
+def run_cmd_on_remote_host(site, cmd:str) -> Any:
     """Runs command on a remote host"""
 
     try:

@@ -25,7 +25,7 @@ def get_xi_data(url):
 def alert(url, params):
     """sends sms alert"""
     try:
-        headers = {'Content-type': 'application/json; charset=utf-8'}
+        headers = {'Content-type': 'application/json; charset=utf-8', "Authorization": os.getenv('ECHO_API_KEY')}
         r = requests.post(url, json=params, headers=headers)
         print("SMS sent successfully")
         
@@ -106,8 +106,10 @@ for site_id in cluster['site']:
                 for recipient in recipients:
                     msg = "Hi there,\n\nDeployment of HIS-Core to v1.6.2 for " + site['name'] + " failed to complete after several connection attempts.\n\nThanks!\nEGPAF/LIN HIS."
                     params = {
-                        "api_key": os.getenv('API_KEY'),
-                        "recipient": recipient,
-                        "message": msg
+             
+                        {
+                        "message_body": msg,
+                        "recipient": 265995246144,
+                        "reference": "string"
                     }
-                    alert("http://sms-api.hismalawi.org/v1/sms/send", params)
+                    alert("https://echo.hismalawi.org/api/v1/sms/outbounds/", params)
